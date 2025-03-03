@@ -1,0 +1,15 @@
+{
+    "include": [
+        "."
+    ],
+    "exclude": [
+        "**/node_modules",
+        "**/__pycache__"
+    ],
+    "ignore": [],
+    "defineConstant": {},
+    "typeCheckingMode": "basic",
+    "useLibraryCodeForTypes": true,
+    "reportMissingImports": true,
+    "reportMissingTypeStubs": false
+} 
