@@ -4,27 +4,36 @@ import random
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage
+from langchain_core.output_parsers import StrOutputParser
 
 # Load environment variables
 load_dotenv()
 
-def call_llm(prompt: str, max_retries: int = 3, initial_backoff: float = 1.0) -> str:
+def call_llm(prompt: str, json_mode: bool = False, max_retries: int = 3, initial_backoff: float = 1.0) -> str:
     """
     OpenAI LLMへのAPI呼び出しを行い、応答を返す。失敗した場合は自動的にリトライする。
     
     Args:
         prompt (str): LLMに送信するプロンプト
+        json_mode (bool): JSONモードを有効にするかどうか（デフォルト: False）
         max_retries (int): 最大リトライ回数（デフォルト: 3）
         initial_backoff (float): 初期バックオフ時間（秒）（デフォルト: 1.0）
         
     Returns:
         str: LLMからの応答テキスト
     """
+    # Initialize the OpenAI LLM with appropriate parameters
+    llm_params = {
+        "model": "gpt-4.5-preview",  # or another appropriate model
+        "temperature": 0.7
+    }
+    
+    # Add JSON mode if requested
+    if json_mode:
+        llm_params["response_format"] = {"type": "json_object"}
+    
     # Initialize the OpenAI LLM
-    llm = ChatOpenAI(
-        model="gpt-4o",  # or another appropriate model
-        temperature=0.7
-    )
+    llm = ChatOpenAI(**llm_params)
     
     # Create a message with the prompt
     message = HumanMessage(content=prompt)

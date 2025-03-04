@@ -14,18 +14,13 @@ def paragraph_layer(
 ) -> Tuple[str, str]:
     """
     Paragraph Layer:
-    Section Layerで生成したセクションプロットをベースに、段落単位で物語を展開する。
+    Section Layerで生成したセクションプロットをベースに、段落単位で物語を肉付けする。
     
     処理の流れ:
     1. 入力として受け取ったsection_plotをベースに、paragraph_intentとtimelineデータを参考にする
-    2. 前回までの段落との連続性を保ちながら、新しい段落を生成
+    2. 前回までの段落との連続性を保ちながら、新しい段落のテキストを生成
     3. 次の段落への意図も一緒に生成
-    4. 生成された段落と意図をモックファイルに保存（テスト用）
-    
-    特徴:
-    - 最大3つ前までの段落を参照して連続性を保つ
-    - 段落ごとに細かいストーリー展開が可能
-    - 節をまたいでも段落の連続性を維持
+    4. 生成された段落テキストと意図をモックファイルに保存（テスト用）
     
     Args:
         master_plot (str): マスタープロット
@@ -38,6 +33,9 @@ def paragraph_layer(
         
     Returns:
         Tuple[str, str]: 段落と段落の意図
+        
+    Raises:
+        ValueError: JSONパースエラーやレスポンス形式が不正な場合
     """
     if previous_paragraphs is None:
         previous_paragraphs = []
@@ -45,25 +43,26 @@ def paragraph_layer(
     # 現在の段落番号を特定
     current_paragraph_index = len(previous_paragraphs)
     
-    # 参照する段落は最大3つ前まで
-    ref_paragraphs = previous_paragraphs[-3:] if previous_paragraphs else []
+    # タイムラインデータの準備
+    timeline_str = json.dumps(all_characters_timeline, ensure_ascii=False, indent=2)
+    # タイムラインが複雑すぎる場合は、最新のエントリだけを使用
+    if len(timeline_str) > 4000:  # 文字数制限を設ける
+        timeline_str = json.dumps(all_characters_timeline[-1] if all_characters_timeline else {}, ensure_ascii=False, indent=2)
     
-    # 参照する段落を文字列化
-    ref_paragraphs_str = ""
-    if ref_paragraphs:
-        for i, para in enumerate(ref_paragraphs):
-            # 何番目の段落かを計算（例：現在の段落が5番目なら、参照するのは2, 3, 4番目）
-            para_num = current_paragraph_index - len(ref_paragraphs) + i + 1
-            ref_paragraphs_str += f"\n\n段落 {para_num}:\n{para}"
-    
-    # タイムラインデータの準備（複雑すぎる場合は最新のエントリのみ使用）
-    timeline_str = json.dumps(all_characters_timeline[-1] if all_characters_timeline else {}, ensure_ascii=False, indent=2)
+    # 前回の段落内容を文字列化（最新の3つだけ使用）
+    previous_paragraphs_str = ""
+    if previous_paragraphs:
+        # 最新の3つの段落だけを使用
+        recent_paragraphs = previous_paragraphs[-3:] if len(previous_paragraphs) > 3 else previous_paragraphs
+        for i, paragraph in enumerate(recent_paragraphs):
+            paragraph_number = current_paragraph_index - len(recent_paragraphs) + i + 1
+            previous_paragraphs_str += f"\n\nParagraph {paragraph_number}:\n{paragraph}"
     
     # プロンプトの構築
     prompt = f"""
     # 段落生成タスク
     
-    あなたは物語の段落を生成するアシスタントです。セクションプロットをベースに、前の段落との連続性を保ちながら次の段落を作成してください。
+    あなたは物語の段落を生成するアシスタントです。セクションプロットをより詳細に肉付けし、流れるような自然な段落テキストを作成してください。
 
     ## 入力情報
 
@@ -79,48 +78,47 @@ def paragraph_layer(
     [キャラクタータイムライン]
     {timeline_str}
 
-    [セクションプロット]
+    [現在のセクションプロット]
     {section_plot}
 
-    [前の段落]
-    {ref_paragraphs_str if ref_paragraphs_str else "まだ段落は生成されていません。この段落が最初の段落です。"}
+    [これまでの段落]
+    {previous_paragraphs_str if previous_paragraphs_str else "まだ段落は生成されていません。"}
     
     {f"[前回の段落意図]\n{previous_paragraph_intent}" if previous_paragraph_intent else ""}
 
     ## 指示
-    セクションプロットと前の段落を元に、段落{current_paragraph_index + 1}を作成してください。
+    セクションプロットを元に、段落{current_paragraph_index + 1}のテキストを詳細に作成してください。
+    これは物語の一部として読者に提示される実際のテキストです。
     
-    1. 前の段落との自然な連続性を持たせてください
-    2. 会話、描写、行動などをバランスよく含めてください
-    3. 1段落あたり100〜300語程度で書いてください
-    4. セクションプロットの一部だけに焦点を当て、細部を掘り下げてください
-    5. 登場人物の感情や思考、周囲の環境描写なども含めると良いでしょう
+    1. 流れるような自然な文章で、小説の1パートとして読めるようなクオリティで書いてください
+    2. 前の段落から自然に続くようにしてください。つながりを意識しましょう
+    3. 文体は一貫して、物語世界に没入できるような表現を心がけてください
+    4. 必要に応じて会話や内的独白、ナレーションをバランスよく含めてください
+    5. キャラクターの感情や思考、周囲の環境描写なども含めると良いでしょう
     
     ## 出力形式
-    以下の2つの部分を出力してください：
+    JSONフォーマットで以下の2つの部分を出力してください：
 
-    1. 段落（必須）: 物語の一部分としての段落テキスト
-    2. 段落意図（必須）: 次の段落でどのように物語を展開したいかの簡潔な意図
-    
-    出力例：
-    
-    # 段落
-    （ここに段落テキストを書く）
-    
-    # 段落意図
-    （ここに次の段落への意図を書く）
+    {
+        "paragraph": "物語の一部分としての段落テキスト",
+        "paragraph_intent": "次の段落でどのように物語を展開したいかの簡潔な意図"
+    }
     """
     
     # LLMを呼び出して段落を生成
-    response = call_llm(prompt)
-    
-    # 最終的な応答からパラグラフと意図を抽出
-    paragraph, paragraph_intent = extract_paragraph_and_intent(response)
-    
-    # For debugging only - this will be removed in production
-    # save_paragraph_to_mock_files(paragraph, paragraph_intent, current_paragraph_index)
-    
-    return paragraph, paragraph_intent
+    try:
+        response = call_llm(prompt, json_mode=True)
+        
+        # 最終的な応答からパラグラフと意図を抽出
+        paragraph, paragraph_intent = extract_paragraph_and_intent(response)
+        
+        # For debugging only - this will be removed in production
+        # save_paragraph_to_mock_files(paragraph, paragraph_intent, current_paragraph_index)
+        
+        return paragraph, paragraph_intent
+    except ValueError as e:
+        print(f"段落生成中にエラーが発生しました: {e}")
+        raise
 
 
 def extract_paragraph_and_intent(response: str) -> Tuple[str, str]:
@@ -128,37 +126,31 @@ def extract_paragraph_and_intent(response: str) -> Tuple[str, str]:
     LLMのレスポンスから段落と段落意図を抽出する
     
     Args:
-        response (str): LLMからのレスポンス
+        response (str): LLMからのレスポンス（JSON形式）
         
     Returns:
         Tuple[str, str]: 段落と段落の意図
-    """
-    # デフォルト値を設定
-    paragraph = ""
-    paragraph_intent = ""
-    
-    # 段落と意図の抽出
-    para_marker = "# 段落"
-    intent_marker = "# 段落意図"
-    
-    if para_marker in response and intent_marker in response:
-        # 両方のマーカーが見つかった場合、その間のテキストを抽出
-        para_start = response.find(para_marker) + len(para_marker)
-        intent_start = response.find(intent_marker)
-        paragraph = response[para_start:intent_start].strip()
-        paragraph_intent = response[intent_start + len(intent_marker):].strip()
-    else:
-        # マーカーが見つからない場合、テキストを半分に分割して割り当て
-        lines = response.strip().split('\n')
-        mid_point = len(lines) // 2
-        paragraph = '\n'.join(lines[:mid_point]).strip()
-        paragraph_intent = '\n'.join(lines[mid_point:]).strip()
         
-        # それでも抽出できなかった場合はレスポンス全体を段落とし、
-        # 意図はデフォルト値を使用
+    Raises:
+        ValueError: JSONパースエラーやレスポンス形式が不正な場合
+    """
+    try:
+        # JSON形式のレスポンスをパース
+        data = json.loads(response)
+        
+        # キーからデータを取得
+        paragraph = data.get("paragraph", "")
+        paragraph_intent = data.get("paragraph_intent", "")
+        
+        # キーが存在しない、または値が空の場合はエラーを発生
         if not paragraph:
-            paragraph = response.strip()
-            paragraph_intent = "次の段落では、この流れを継続して展開します。"
+            raise ValueError("'paragraph' が見つからないか空です")
+        if not paragraph_intent:
+            raise ValueError("'paragraph_intent' が見つからないか空です")
+            
+    except json.JSONDecodeError as e:
+        # JSONパースに失敗した場合は例外を投げる
+        raise ValueError(f"JSONパースに失敗しました: {e}\nレスポンス: {response[:100]}...")
     
     return paragraph, paragraph_intent
 

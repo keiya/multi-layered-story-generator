@@ -7,4 +7,6 @@
     "python.analysis.inlayHints.variableTypes": true,
     "editor.wordWrap": "bounded",
     "editor.wordWrapColumn": 80,
+    "editor.lineHeight": 1.6,
+    "editor.fontSize": 18,
 } 

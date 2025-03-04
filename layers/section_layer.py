@@ -33,6 +33,9 @@ def section_layer(
         
     Returns:
         Tuple[str, str]: セクションプロットとセクションの意図
+        
+    Raises:
+        ValueError: JSONパースエラーやレスポンス形式が不正な場合
     """
     if previous_sections is None:
         previous_sections = []
@@ -85,27 +88,21 @@ def section_layer(
     各セクションは物語の一区切りとなるまとまりで、一つの場面や時間帯、あるいは特定のイベントに焦点を当てます。
     
     1. このセクションで起こる主要な出来事、登場するキャラクター、彼らの会話や行動、感情の変化などを詳細に含めてください。
-    2. 時系列、場所の描写、登場人物の動きが明確になるように記述してください。
+    2. 時系列、場所の描写、キャラクターの動きが明確になるように記述してください。
     3. チャプターの全体的なテーマを保ちながら、物語を進展させてください。
     4. 前のセクションとの連続性を保ち、自然な流れを作りましょう。
     
     ## 出力形式
-    以下の2つの部分を出力してください：
+    JSONフォーマットで以下の2つの部分を出力してください：
 
-    1. セクションプロット（必須）: 詳細な物語の一部分としてのプロット。300-800語程度。
-    2. セクション意図（必須）: 次のセクションでどのように物語を展開したいかの簡潔な意図（100-200語程度）。
-    
-    出力例：
-    
-    # セクションプロット
-    （ここにセクションプロットを書く）
-    
-    # セクション意図
-    （ここに次のセクションへの意図を書く）
+    {
+        "section_plot": "詳細な物語の一部分としてのプロット。500-1000語程度。",
+        "section_intent": "次のセクションでどのように物語を展開したいかの簡潔な意図（100-200語程度）"
+    }
     """
     
-    # LLMを呼び出してセクションを生成
-    response = call_llm(prompt)
+    # LLMを呼び出してセクションを生成（JSONモードを有効化）
+    response = call_llm(prompt, json_mode=True)
     
     # 最終的な応答からセクションプロットと意図を抽出
     section_plot, section_intent = extract_plot_and_intent(response)
@@ -121,37 +118,28 @@ def extract_plot_and_intent(response: str) -> Tuple[str, str]:
     LLMのレスポンスからセクションプロットとセクション意図を抽出する
     
     Args:
-        response (str): LLMからのレスポンス
+        response (str): LLMからのレスポンス（JSON形式）
         
     Returns:
         Tuple[str, str]: セクションプロットとセクション意図
     """
-    # デフォルト値を設定
-    section_plot = ""
-    section_intent = ""
-    
-    # セクションプロットの抽出
-    plot_marker = "# セクションプロット"
-    intent_marker = "# セクション意図"
-    
-    if plot_marker in response and intent_marker in response:
-        # 両方のマーカーが見つかった場合、その間のテキストを抽出
-        plot_start = response.find(plot_marker) + len(plot_marker)
-        intent_start = response.find(intent_marker)
-        section_plot = response[plot_start:intent_start].strip()
-        section_intent = response[intent_start + len(intent_marker):].strip()
-    else:
-        # マーカーが見つからない場合、テキストを半分に分割して割り当て
-        lines = response.strip().split('\n')
-        mid_point = len(lines) // 2
-        section_plot = '\n'.join(lines[:mid_point]).strip()
-        section_intent = '\n'.join(lines[mid_point:]).strip()
+    try:
+        # JSON形式のレスポンスをパース
+        data = json.loads(response)
         
-        # それでも抽出できなかった場合はレスポンス全体をプロットとし、
-        # インテントはデフォルト値を使用
+        # キーからデータを取得
+        section_plot = data.get("section_plot", "")
+        section_intent = data.get("section_intent", "")
+        
+        # キーが存在しない、または値が空の場合はエラーを発生
         if not section_plot:
-            section_plot = response.strip()
-            section_intent = "次のセクションでは、このプロットを継続して展開します。"
+            raise ValueError("'section_plot' が見つからないか空です")
+        if not section_intent:
+            raise ValueError("'section_intent' が見つからないか空です")
+            
+    except json.JSONDecodeError as e:
+        # JSONパースに失敗した場合は例外を投げる
+        raise ValueError(f"JSONパースに失敗しました: {e}\nレスポンス: {response[:100]}...")
     
     return section_plot, section_intent
 

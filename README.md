@@ -125,3 +125,31 @@ Output: validation_output
 ## Style Filter
 
 文体を修正するフィルター。Paragraph に対して適用される。
+
+# main.py
+
+# プロットレイヤーまで生成
+
+```
+python main.py --layer plot
+```
+
+# 既存のファイルから章レイヤーまで生成を再開
+
+```
+python main.py --layer chapter --resume
+```
+
+- 再生成したいものは削除する
+
+# カスタムプロンプトを使用し、3 章まで生成
+
+```
+python main.py --chapters 3 --prompt "近未来の都市で起きる、人工知能とヒューマニティに関するSF物語"
+```
+
+# プロンプトファイルからセクションレイヤーまで生成
+
+```
+python main.py --layer section --prompt-file my_prompt.txt
+```
