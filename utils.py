@@ -24,13 +24,14 @@ def call_llm(prompt: str, json_mode: bool = False, max_retries: int = 3, initial
     """
     # Initialize the OpenAI LLM with appropriate parameters
     llm_params = {
-        "model": "gpt-4.5-preview",  # or another appropriate model
-        "temperature": 0.7
+        "model": "gpt-4o",  # or another appropriate model
+        "temperature": 0.7,
+        "model_kwargs": {}  # 追加：model_kwargsディクショナリを初期化
     }
     
     # Add JSON mode if requested
     if json_mode:
-        llm_params["response_format"] = {"type": "json_object"}
+        llm_params["model_kwargs"]["response_format"] = {"type": "json_object"}
     
     # Initialize the OpenAI LLM
     llm = ChatOpenAI(**llm_params)

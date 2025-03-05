@@ -339,7 +339,7 @@ class StoryGenerator:
         chapter_dir = OUTPUT_DIR / f"chapters/{chapter_index+1:02d}"
         chapter_timeline_path = chapter_dir / "_timeline.txt"
         
-        if self.resume and self.all_characters_timeline and chapter_timeline_path.exists():
+        if self.resume and chapter_timeline_path.exists():
             print_status(f"Resuming with existing timeline for Chapter {chapter_index+1}", "success")
             try:
                 with open(chapter_timeline_path, 'r', encoding='utf-8') as f:
@@ -347,6 +347,9 @@ class StoryGenerator:
                     # 新しい章なら、タイムラインに追加
                     if len(self.all_characters_timeline) <= chapter_index:
                         self.all_characters_timeline.append(timeline_data)
+                    else:
+                        # 既存の章のタイムラインを更新
+                        self.all_characters_timeline[chapter_index] = timeline_data
             except Exception as e:
                 print_status(f"Error reading timeline from {chapter_timeline_path}: {e}", "error")
                 # タイムラインの読み込みに失敗したら生成
@@ -413,10 +416,19 @@ class StoryGenerator:
                     section_intent = cached_section_intent
                 else:
                     print_status(f"Generating new Section {sec_i+1} in Chapter {ch_i+1}...", "info")
+                    # これまでの全ての章のセクションを収集
+                    all_previous_sections = self.section_plots[:ch_i] if ch_i > 0 else []
+                    
+                    # まだセクション化されていない章のプロットを収集
+                    remaining_chapter_plots = []
+                    if ch_i + 1 < len(self.chapter_plots):
+                        remaining_chapter_plots = self.chapter_plots[ch_i+1:]
+                    
                     section_plot, section_intent = section_layer(
                         self.master_plot, self.backstories, self.characters,
                         self.all_characters_timeline, chapter_plot,
-                        prev_sections, prev_section_intent
+                        prev_sections, prev_section_intent,
+                        all_previous_sections, remaining_chapter_plots
                     )
                     save_to_file(section_plot, section_plot_path)
                     save_to_file(section_intent, section_intent_path)
